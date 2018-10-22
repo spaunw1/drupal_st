@@ -1,0 +1,8 @@
+
+name = node searcher
+description = form api test
+version = "7.x-1.0"
+core = "7.x"
+project = "mymodule"
+package = "Other"
+datestamp = "1299001844"

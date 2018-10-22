@@ -1,0 +1,140 @@
+<?php
+/**
+ * .
+ */
+function nodequery_menu()
+{
+    $items = array();
+
+    $items['nodequery/form'] = array(
+        'title' => t('Find nodes'),
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('nodequery_my_form'),
+        'access arguments' => array('access content'),
+        'description' => t('user nodes'),
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK,
+    );
+    return $items;
+
+}
+
+/**
+ *массив для формы.
+ */
+function nodequery_my_form($form, &$form_state) {
+    $form['name'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Query'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+    );
+
+    $form['name']['title'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Title matches'),
+        '#required' => TRUE,
+        '#default_value' => "",
+        '#description' => "Please enter your query.",
+        '#size' => 20,
+        '#maxlength' => 20,
+    );
+
+
+    $result = db_query("SELECT type FROM node_type ORDER BY name");
+    //print_r($result);
+    foreach ($result as $row) {
+        $type = $row->type;
+        $types[$type] = $type;
+    }
+        $form['name']['type'] = array(
+            '#type' => 'radios',
+            '#title' => 'content-type',
+            '#options' => $types,
+            '#required' => TRUE,
+
+        );
+
+
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Submit'),
+        '#ajax' => array(
+          'callback' => 'nodequery_my_form_ajax',
+          'wrapper' => 'form-ajax-node-content',
+           // 'method' => 'replace',
+            'effect' => 'fade',
+        ),
+    );
+
+    $form['markup'] = array(
+        '#prefix' => '<div id = "form-ajax-node-content">',
+        '#suffix' => '</div>',
+        '#markup' => '',
+    );
+
+    /*if (!isset($form_state['values'])) {
+        $form['#action'] = $_SERVER['REQUEST_URI'];
+    } else {
+        $form['#action'] = 'nodequery/form';
+    }*/
+
+    return $form;
+}
+/**
+ * обработка данных формы.
+ */
+function nodequery_my_form_validate($form, &$form_state) {
+    $query = $form_state['values']['title'];
+    if ($query) {
+
+    } else {
+        form_set_error('title', t('Enter title at least'));
+    }
+}
+
+function nodequery_my_form_form_alter(&$form, &$form_state, $form_id)
+{
+
+    switch ($form_id) {
+        case 'nodequery_my_form':
+            if (isset($form['name'])) {
+                $actions = element_children($form['name']);
+                foreach ($actions as $action) {
+                    $item = &$form['actions'][$action];
+                    $item['#attributes']['class'][] = 'myclass-' . $action;
+                }
+            }
+    }
+}
+
+
+
+function nodequery_my_form_ajax($form, &$form_state) {
+
+    $query = $form_state['values']['title'];
+    $types = $form_state['values']['type'];
+
+    $result = db_query("SELECT title FROM node WHERE (type = '".$types."') AND (title LIKE '%".$query."%')");
+    //print_r($result);
+    $nids = array();
+    foreach ($result as $obj) {
+        $nids[] = $obj->title;
+    }
+    foreach($nids as $values) {
+        $ar_res[] = $values;
+    }  
+
+    if ($query) {
+
+        //$out .= drupal_set_message($query);
+        //$out .= drupal_set_message($types);
+
+        $node = node_load_multiple(array_flip($ar_res), array('type' => $types));
+        $view = node_view_multiple($node);
+        $form['markup']['#markup'] = drupal_render($view);
+    }
+    return $form['markup'];
+}
+
+

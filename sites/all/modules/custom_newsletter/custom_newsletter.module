@@ -1,0 +1,117 @@
+<?php
+/**
+* Implements hook_menu().
+*/
+function custom_newsletter_menu() {
+$items = array();
+$items['custom-newsletter'] = array(
+'title' => 'Custom Newsletter Form',
+'description' => 'Sign up for our newsletter',
+'page callback' => 'drupal_get_form',
+// custom_newsletter_form is the name of the function that will be passed to
+// drupal_get_form. This function is what provides the form.
+'page arguments' => array('custom_newsletter_form'),
+'access arguments' => array('access content'),
+'type' => MENU_CALLBACK,
+);
+return $items;
+}
+
+/**
+ * Our custom newsletter form.
+ */
+function custom_newsletter_form($form, &$form_state) {
+    // This is used for the #ajax['wrapper']. The underscores need to be replaced
+    // with hyphens or else you'll end up with a bad selector for your form.
+    $form_id = str_replace('_', '-', $form_state['build_info']['form_id']);
+
+    // Because classes are good for styling
+    $form['#attributes'] = array('class' => array('newsletter-form'));
+
+    $form['title'] = array(
+        '#markup' => "Sign up for our newsletter!",
+        '#prefix' => '<h2 class="newsletter-form-title">',
+        '#suffix' => '</h2>'
+    );
+
+    $form['description'] = array(
+        '#markup' => 'Get our latest content sent right to your inbox every week.',
+        '#prefix' => '<div class="newsletter-form-description">',
+        '#suffix' => '</div>'
+    );
+
+    $form['email'] = array(
+        '#type' => 'textfield',
+        '#required' => TRUE,
+        '#attributes' => array(
+            'class' => array('newsletter-form-email'),
+        ),
+    );
+
+    $form['actions']['#type'] = 'actions';
+    $form['actions']['submit'] = array(
+        '#type' => 'submit',
+        '#weight' => 10,
+        '#value' => 'Sign up',
+        '#ajax' => array(
+            'callback' => 'custom_newsletter_form_ajax',
+            'event' => 'click',
+            'method' => 'replace',
+            'wrapper' => $form_id,
+        ),
+    );
+
+    return $form;
+}
+
+/**
+ * The ajax callback for custom_newsletter_form.
+ */
+function custom_newsletter_form_ajax(&$form, &$form_state) {
+    if (form_get_errors()) {
+        return $form;
+    }
+
+    $commands = array();
+    $commands[] = ajax_command_replace(NULL, theme('status_messages'));
+
+    return array(
+        '#type' => 'ajax',
+        '#commands' => $commands,
+    );
+}
+
+/**
+ * The validate callback for custom_newsletter_form.
+ */
+function custom_newsletter_form_validate($form, &$form_state) {
+    if (!valid_email_address($form_state['values']['email'])) {
+        form_set_error('custom_newsletter', t('Please enter a valid email address.'));
+    }
+}
+
+/**
+ * The submit callback for custom_newsletter_form.
+ */
+function custom_newsletter_form_submit($form, &$form_state) {
+    // Grab the email address for processing later
+    $email = $form_state['values']['email'];
+
+    //
+    // Do email processing here
+    //
+    // References:
+    // - https://api.drupal.org/api/drupal/includes!mail.inc/function/drupal_mail/7
+    // - https://api.drupal.org/api/examples/email_example%21email_example.module/7
+    //
+
+    // Let's assume we successfully processed the submission.
+    $success = TRUE;
+
+    if ($success) {
+        drupal_set_message(t('Your submission was successful. An email will be sent to @email.', array('@email' => $email)), 'status');
+    }
+    else {
+        drupal_set_message(t('There was a problem submitting the form.'), 'warning');
+    }
+}

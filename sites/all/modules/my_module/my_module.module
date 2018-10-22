@@ -1,0 +1,186 @@
+<?php
+
+/**
+ * @file
+ * Example module.
+ * @see https://www.chapterthree.com/blog/make-your-drupal-7-modules-extendable
+ * Author: Minnur Yunusov
+ * mmyunusov@gmail.com
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function my_module_menu() {
+
+  $items['admin/config/development/my-module'] = array(
+    'title' => 'My Module',
+    'description' => 'Description of the module',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('my_module_configuration_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['my-module/plugin'] = array(
+    'title' => 'My Module Elements',
+    'description' => 'Description of the module',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('my_module_view_form'),
+    'access callback' => TRUE,
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+ 
+/**
+ * Implements hook_my_own_hook().
+ */
+function my_module_my_own_hook() {
+  return array(
+    // Machine name of the plugin.
+    'example' => array(
+      // Human readable string visible on the config page.
+      'name' => t('Example plugin'),
+      // PHP Class name that extends MyPluginBase class.
+      'phpClassName' => 'Example',
+    ),
+    // Machine name of the plugin.
+    'example2' => array(
+      // Human readable string visible on the config page.
+      'name' => t('Example plugin2'),
+      // PHP Class name that extends MyPluginBase class.
+      'phpClassName' => 'Example2',
+    ),
+  );
+}
+
+/**
+ * View form.
+ * Simple callback that implements buttons with labels
+ * pulled from plugin `label()` methods.
+ */
+function my_module_view_form($form, &$form_state) {
+
+  $plugins = my_module_load_plugins();
+  foreach ($plugins as $name => $plugin) {
+
+    // Display only enabled plugins.
+    $enabled = variable_get('my_module_' . $name . '_enabled', FALSE);
+
+    if ($enabled) {
+      $label = my_module_plugin_method($plugin['phpClassName'], 'label');
+      $form[$name] = array(
+        '#type' => 'submit',
+        '#value' => $label,
+      );
+    }
+
+  }
+
+  return $form;
+}
+
+/**
+ * Configuration form.
+ */
+function my_module_configuration_form($form, &$form_state) {
+
+  $form['settings'] = array(
+    '#type' => 'vertical_tabs',
+  );
+
+  $plugins = my_module_load_plugins();
+  foreach ($plugins as $name => $plugin) {
+
+    $form['settings'][$name] = array(
+      '#type' => 'fieldset',
+      '#title' => $plugin['name'],
+    );
+
+    $form['settings'][$name][$name . '_enabled'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable plugin'),
+      '#default_value' => variable_get('my_module_' . $name . '_enabled', FALSE),
+      '#description' => t("Description for the checkbox."),
+    );
+
+    $configForm = my_module_plugin_method($plugin['phpClassName'], 'configForm', array(&$form_state));
+    if (is_array($configForm)) {
+      $form['settings'][$name] += $configForm;
+    }
+
+  }
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save settings'),
+  );
+
+  return $form;
+}
+
+/**
+ * Form validation handler.
+ */
+function my_module_configuration_form_validate($form, &$form_state) {
+  $plugins = my_module_load_plugins();
+  foreach ($plugins as $name => $plugin) {
+    my_module_plugin_method($plugin['phpClassName'], 'validationHandler', array($form, $form_state));
+  }
+}
+
+/**
+ * Form submit handler.
+ */
+function my_module_configuration_form_submit($form, &$form_state) {
+  $plugins = my_module_load_plugins();
+  foreach ($plugins as $name => $plugin) {
+    // Save Enable options.
+    variable_set('my_module_' . $name . '_enabled', $form_state['values'][$name . '_enabled']);
+    my_module_plugin_method($plugin['phpClassName'], 'submitHandler', array($form, $form_state));
+  }
+  drupal_set_message(t('The configuration options have been saved.'));
+}
+
+/**
+ * Helper function to invoke your custom hook.
+ *
+ * @return array List of available plugins.
+ */
+function my_module_load_plugins() {
+
+  $plugins = array();
+  // Invoke `my_own_hook` implemented in all modules.
+  $plugin_hooks = module_invoke_all('my_own_hook');
+
+  foreach ($plugin_hooks as $name => $plugin) {
+
+    // @see http://php.net/manual/en/class.reflectionclass.php
+    $reflection = new ReflectionClass($plugin['phpClassName']);
+
+    // Now make sure the plugin class is extended from
+    // your abstract `MyPluginBase` class.
+    if ($reflection->isSubclassOf('MyPluginBase')) {
+      $plugins[$name] = $plugin;
+    }
+
+  }
+
+  return $plugins;
+}
+
+/**
+ * Helper function to call phpClass method.
+ *
+ * @return mixed Result of the class method.
+ */
+function my_module_plugin_method($class, $method, $args = array()) {
+
+  $reflection = new ReflectionClass($class);
+  $method = $reflection->getMethod($method);
+  $pluginClass = new $class();
+  return $method->invokeArgs($pluginClass, $args);
+
+}

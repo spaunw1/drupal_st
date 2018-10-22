@@ -1,0 +1,5 @@
+name = uRegVerify
+description = verify test
+version = VERSION
+core = 7.x
+;scripts[] = script.js

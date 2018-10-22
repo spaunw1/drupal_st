@@ -1,0 +1,48 @@
+<?php
+
+function link_form_menu() {
+    $items = array();
+    $items['link_form/form'] = array(
+        'title' => 'MYLINKS',
+        'page callback' => 'mylink_editor',
+        'access callback' => TRUE,
+        'type' => MENU_NORMAL_ITEM,
+    );
+    return $items;
+}
+
+function get_user_nodes() {
+    global $user;
+    $result = db_query("SELECT * FROM node WHERE uid LIKE '".$user->uid."'");
+    $nodes = array();
+    foreach ($result as $node) {
+        $nodes[$node->nid] = check_plain($node->nid);
+    }
+
+    return $nodes;
+
+}
+
+function mylink_editor(){
+    $html = '';
+
+    module_load_include('inc', 'node', 'node.pages');
+    $form = node_add('link');
+    $html .= drupal_render($form);
+
+
+    $nodes = get_user_nodes();
+
+        $node = node_load_multiple($nodes, array('type' => 'link'));
+        if (!empty($node)) {
+            $view = node_view_multiple($node);
+            $html .= '<br><h2>My LINKS</h2>';
+            $html .=  drupal_render($view);
+        }
+
+
+    return $html;
+
+}
+
+

@@ -1,0 +1,112 @@
+<?php
+function bdtest_menu(){
+    $item = array();
+    $item['bdtest'] = array(
+        'title' => 'bd->load',
+        'page callback' => 'drupal_get_form',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array('bdtest_form'),
+        'access callback' => TRUE
+    );
+
+    return $item;
+}
+function bdtest_form(){
+    $form = array();
+
+    $form['name'] = array(
+        '#type' => 'textfield',
+        '#title' => 'Ваше имя',
+        '#attributes' => array(
+            'placeholder' => array('Имя Фамилия')
+        ),
+    );
+
+    $form['sex'] = array(
+        '#type' => 'radios',
+        '#title' => t('select ur gender'),
+        '#options' => array(
+            t('male'),
+            t('female'),
+        )
+    );
+
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => 'Submit',
+        '#ajax' => array(
+            'callback' => 'bdtest_ajax',
+            'wrapper' => 'form-ajax-content',
+            'method' => 'replace',
+            'effect' => 'fade',
+        ),
+    );
+
+    $form['markup'] = array(
+        '#prefix' => '<div id = "form-ajax-content">',
+        '#suffix' => '</div>',
+        '#markup' => '',
+    );
+
+    return $form;
+}
+function bdtest_validate($form, &$form_state){
+    $name = $form_state['values']['name'];
+    $name_lenght = mb_strlen($name);
+    if($name_lenght < 3){
+        form_set_error('name', t('Short name'));
+    }
+}
+function bdtest_schema(){
+    $schema = array();
+    $schema['bdtest'] = array(
+        'description' => 'safsdafgdsfds',
+        'fields' => array(
+            'id' => array(
+                'type' => 'serial',
+                'unsignet' => TRUE,
+                'not null' => TRUE,
+            ),
+            'name' => array(
+                'type' => 'varchar',
+                'length' => 128,
+                'default' => '',
+            ),
+            'sex' => array(
+                'type' => 'int',
+                'default' => 0,
+            ),
+        ),
+        'primary key' => array('id'),
+    );
+
+    return $schema;
+}
+function bdtest_ajax($form, &$form_state)
+{
+    $q = db_insert('bdtest');
+
+    $q->fields(
+        array(
+            'name' => $form_state['values']['name'],
+            'sex' => $form_state['values']['sex'],
+        )
+    );
+    $res = $q->execute();
+    if ($form_state['values']['name'] && $form_state['values']['sex']) {
+        if ($res) {
+            drupal_set_message('Форма успешно отправлена', 'status');
+            //$form['markup']['#markup'] = 'status';
+        } else {
+
+            drupal_set_message('Ошибка отправки формы', 'error');
+            //$form['markup']['#markup'] = 'error';
+        }
+
+    } else {
+        drupal_set_message('Заполните все поля', 'error');
+
+    }
+
+    return $form['markup'];
+}

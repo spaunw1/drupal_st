@@ -1,0 +1,10 @@
+name = My Module
+description = Description of the module
+core = 7.x
+configure = admin/config/development/my-module
+
+; This is required. You have to include all plugin files.
+; Once you include a new file make sure to clear Drupal cache.
+files[] = plugins/plugin.php
+files[] = plugins/example.php
+files[] = plugins/example2.php

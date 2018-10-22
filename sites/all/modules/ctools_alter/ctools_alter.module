@@ -1,0 +1,23 @@
+<?php
+
+function ctools_alter_menu_alter(&$menu)
+{
+    if (isset($menu['ctools_ajax_sample'])) {
+      //  $menu['ctools_ajax_sample/%ctools_js/animal']['page callback'] = 'ctools_ajax_sample_animal_extended';
+    }
+}
+
+function ctools_ajax_sample_animal_extended(){
+
+    return true;
+
+}
+
+function ctools_alter_form_alter(&$form, &$form_state, $form_id) {
+
+    if ($form_id == 'ctools_ajax_sample_start') {
+        $form['type']['#default_value'] = null;
+    }
+}
+   
+

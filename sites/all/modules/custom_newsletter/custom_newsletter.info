@@ -1,0 +1,4 @@
+name = custom newsletter
+description = wppt.
+project = Custom
+core = 7.x

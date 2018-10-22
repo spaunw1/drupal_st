@@ -1,0 +1,150 @@
+<?php function ureg_verify_menu() {
+
+$items['registration/nearly-finished'] = array(
+'title' => 'Check Your Email!',
+'description' => 'Registration: Nearly-Finished Page',
+'page callback' => 'ureg_verify_registration_nearlyfinished',
+'access callback' => true,
+'type' => MENU_CALLBACK,
+);
+$items['verify'] = array(
+'title' => 'Verify your Email',
+'description' => 'Registration: Verify Page',
+'page callback' => 'ureg_verify_registration_verify',
+'access callback' => true,
+'type' => MENU_CALLBACK,
+);
+
+return $items;
+
+}
+
+
+
+/*
+* The function handling the 'nearly finished' page.
+* If we're on the 'nearly finished' page, the user was created in
+* the last two minutes, and the 'u' parameter is filled, block the user.
+*/
+
+function ureg_verify_registration_nearlyfinished() {
+
+// If 'created' and 'u' keys are in the query string:
+if (isset($_GET['created']) && isset($_GET['u'])):
+
+$time = time();
+$url_uid = $_GET['u'];
+
+// See when the user was created.
+$select_user = db_query('SELECT uid, created FROM {users} WHERE uid = :uid', array(':uid' => $url_uid));
+foreach ($select_user as $user_acct) {
+$db_created = $user_acct->created;
+} // end foreach
+
+// Now: if it's within 2 minutes of when the user was created (as a protective measure), and the items in the URL check out as true, let's deactivate the user.
+$time_since = $time - $db_created;
+if ($time_since < 120):
+$user_activated = db_update('users')
+->fields(
+array(
+'status' => 0,
+)
+)
+->condition('uid', $url_uid, '=')
+->execute();
+watchdog('ureg_verify', 'Deactivated %uid', array('%uid' => $url_uid), WATCHDOG_NOTICE, $link = NULL);
+endif; // if ($url_email == $db_email)
+
+endif; // end if $_GET['created']
+
+// Now for the actual page content.
+
+$page_content = '<p>None of us like this, but spam registration and email spoofing are a fact of life.&nbsp;To complete your registration, weve just emailed you a confirmation link.&nbsp;<strong>Once youve verified your email address, well send you to a page where you can choose a password</strong>.</p>
+<p>If you dont see the email appear within several minutes, make sure to check your spam folder. <em>See you on the flip side!</em></p>';
+
+return $page_content;
+
+}
+
+/*
+* The function handling the 'nearly finished' page.
+* If we're on the 'verify' page, activate the user and redirect to the 'thanks' page.
+*/
+
+function ureg_verify_registration_verify() {
+
+if (isset($_GET['created']) && isset($_GET['u'])):
+
+// set the '$options' array for later use in drupal_goto()
+$options = array(
+"query" => '',
+"fragment" => '',
+"external" => FALSE
+);
+
+$url_created = $_GET['created'];
+$url_uid = $_GET['u'];
+$my_groups = '';
+$entity_type = '';
+$db_created = '';
+
+// See if the current user has a group membership.
+$select_user = db_query('
+SELECT u.uid, u.created AS user_created, m.entity_type AS entity_type, m.etid, m.gid AS group_id FROM {users} u
+LEFT JOIN {og_membership} m ON (u.uid = m.etid)
+WHERE u.uid = :uid',
+array(
+':uid' => $url_uid
+)
+);
+foreach ($select_user as $user_acct) {
+$db_created = $user_acct->user_created;
+$my_groups = $user_acct->group_id;
+$entity_type = $user_acct->entity_type;
+} // end foreach
+
+// If the 'created' value lines up, we'll activate the user account.
+if ($url_created == $db_created):
+$user_activated = db_update('users')
+->fields(
+array(
+'status' => 1,
+)
+)
+->condition('uid', $url_uid, '=')
+->execute();
+watchdog('ureg_verify', 'Activated %uid', array('%uid' => $url_uid), WATCHDOG_NOTICE, $link = NULL);
+
+// Find out if a user has already been assigned a role. If so, we'll skip the role-assignment step.
+$my_roles = '';
+$select_roles = db_query('SELECT uid, rid FROM {users_roles} WHERE uid = :uid', array(':uid' => $url_uid));
+foreach ($select_roles as $user_role) {
+$my_roles = $user_role->rid;
+} // end foreach
+
+// Check if the user does NOT have the role of 'School Member', and IS in a group.
+if ($my_roles != 6 && $my_groups != '' && $entity_type == 'user'):
+$user_promoted = db_insert('users_roles')
+->fields(
+array(
+'rid' => 6,
+'uid' => $url_uid,
+)
+)
+->execute();
+watchdog('ureg_verify', 'Promoted %uid to School Member', array('%uid' => $url_uid), WATCHDOG_NOTICE, $link = NULL);
+endif; // end if $my_roles != 6
+
+drupal_goto('registration/thanks', $options, $http_response_headers = 302);
+
+else:
+$page_content = 'Your User ID doesnt match. Sorry, but were unable to activate your account.';
+return $page_content;
+endif; // end if ($url_created == $db_created)
+
+else:
+$page_content = 'We didnt find a User ID. Sorry, but were unable to activate your account.';
+return $page_content;
+endif; // end if (isset($_GET['created']) && isset($_GET['u']))
+
+}
